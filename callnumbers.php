@@ -1,5 +1,30 @@
 <?php
 
+function create_set()
+{
+  $set_json['name'] = 'Sarina test creation of set';
+  $set_json['description'] = 'Sarina is testing sets';
+  $set_json['type'] = array('value' => 'ITEMIZED', 'desc' => 'Itemized');
+  $set_json['content'] = array('value' => 'IEP', 'desc' => 'Physical Titles');
+  $set_json['status'] = array('value' => 'ACTIVE', 'desc' => 'Active');
+  $json = json_encode($set_json);
+  return $json;
+}
+
+function post_set($url,$json)
+{
+  $curl = curl_init($url);
+	curl_setopt($curl, CURLOPT_HEADER, false);
+	curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+	curl_setopt($curl, CURLOPT_HTTPHEADER, array("Content-type: application/json"));
+	curl_setopt($curl, CURLOPT_POST, true);
+	curl_setopt($curl, CURLOPT_POSTFIELDS, $json);
+	$response = curl_exec($curl);
+	curl_close($curl);
+	return $response;
+}
+
+
   /*
     Strip all spaces from call number
     Compare call number strings to see if they are equal
@@ -16,12 +41,10 @@
     {
       return 0;
     }
-
   }
 
   /*
     Read in bib xml file
-
   */
 
   $file = $argv[1];
@@ -30,13 +53,13 @@
   /*
     Look at each holding-enhanced bib record
   */
-
+  $i = 0;
   foreach ($xml->record as $record)
   {
-
     $holding_ids = $record->xpath('datafield[@tag=852]/subfield[@code="8"]');
     $holding_callnumber = $record->xpath('datafield[@tag=852]/subfield[@code="h"]');
     $holding_callnumber_i = $record->xpath('datafield[@tag=852]/subfield[@code="i"]');
+    # enter call number heirarchy choices
     $bib_callnumber_050_a = $record->xpath('datafield[@tag=050]/subfield[@code="a"]');
     $bib_callnumber_050_b = $record->xpath('datafield[@tag=050]/subfield[@code="b"]');
     $bib_callnumber_090_a = $record->xpath('datafield[@tag=090]/subfield[@code="a"]');
@@ -95,6 +118,7 @@
       $bib_callnumber_a = NULL;
       $bib_callnumber_b = NULL;
     }
+    $ids_array = [];
     foreach ($holding_ids as $holding_id)
     {
       /*
@@ -162,12 +186,40 @@
       {
         $result = 0;
       }
-
-
       echo $holding_id . ',' . $total_holding . ',' . $total_bib . ',' . $result . PHP_EOL;
 
     }
+    if ($result == 1)
+    {
+      $id_array[$i] = array ('id' =>$holding_id.'');
+      $i++;
+    }
   }
 
+
+$ini_array = parse_ini_file("config.ini");
+$apikey = $ini_array['apikey'];
+$baseurl = $ini_array['baseurl'];
+$url =  $baseurl . '/almaws/v1/conf/sets?apikey=' . $apikey .'&format=json';
+echo $url . PHP_EOL;
+
+# Creates a set once for the successful holdings
+$json = create_set($id_array);
+$response = post_set($url, $json);
+$response_array = json_decode($response,true);
+$set_id = $response_array['id'];
+var_dump($response);
+echo $set_id;
+$new_url = $baseurl . '/almaws/v1/conf/sets/' . $set_id . '?apikey' . $apikey . '&op=add_members';
+
+
+# "members": {"member":[{"id":"2310019640002914","description":"","link":""}]},
+if(isset($set_id))
+{
+  for ($i = 0; $i < count($id_array); $i+=100)
+  {
+
+  }
+}
 
 ?>
