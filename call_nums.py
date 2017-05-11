@@ -4,7 +4,6 @@ import sys
 import csv
 import configparser
 import logging
-import collections
 import xml.etree.ElementTree as ET
 
 # Returns the API key
@@ -28,20 +27,22 @@ def get_holding_xml(url):
     holding = ET.fromstring(response.content)
     return holding
 
-#
+# Updates the holding record 852$h and $i fields
 def update_xml(holding,results):
     marc_852 = holding.find('record/datafield[@tag="852"]')
     subfield_h = marc_852.find('subfield[@code="h"]')
     subfield_h.text = results['bib_subfield_a']
-    subfield_i = ET.SubElement(marc_852,'subfield')
+    subfield_i = ET.Element('subfield')
     subfield_i.set("code","i")
     subfield_i.text = results['bib_subfield_b']
-    return holding
-#
-def put_holding_xml(holding,url):
+    marc_852.append(subfield_i)
+    print(ET.tostring(holding))
+
+# Places put request for holdign with updated 852 field
+def put_holding_xml(url,holding):
     headers = {"Content-Type": "application/xml"}
-	r = requests.put(url,data=ET.tostring(holding),headers=headers)
-	print (r.content)
+    r = requests.put(url, data=ET.tostring(holding), headers=headers)
+    print (r.content)
 
 # returns elementtree element for given call number and subfield
 def get_subfield(record,marc_tag,subfield):
@@ -49,16 +50,16 @@ def get_subfield(record,marc_tag,subfield):
 
 # compares bib record and holding record call numbers
 def compare_call_nums(bib,holding):
-    if(bib.lower() == holding.lower()):
+    if(bib.replace(' ', '').lower() == holding.replace(' ', '').lower()):
         return 1
     else:
         return 0
 
 # if there's already a $i, no need to check bib record call number.  Otherwise, return holding call number $h
 def get_holding_call_num(holding):
-    if get_subfield(holding,'852','i'):
+    if get_subfield(holding,'852','i') is not None:
         return False
-    else
+    else:
         return get_subfield(holding,'852','h')
 
 """
@@ -73,35 +74,42 @@ def check_matching_callnum(bib,holding_call_num):
     bib_subfield_a = ''
     bib_subfield_b = ''
     for call_num in call_num_array:
+        print (call_num)
         if match_found == 0:
-            if get_subfield(bib,call_num,'a'):
-                bib_subfield_a = get_subfield(bib,call_num,'a')
-                if get_subfield(bib,call_num,'b'):
-                    bib_subfield_b = get_subfield(bib,call_num,'b')
-                    total_bib = bib_subfield_a.text.strip() + bib_subfield_b.text.strip()
-                    match_found = compare_call_nums(total_bib,holding_call_num.strip())
+            if get_subfield(bib,call_num,'a') is not None:
+                bib_subfield_a = get_subfield(bib,call_num,'a').text
+                if get_subfield(bib,call_num,'b') is not None:
+                    bib_subfield_b = get_subfield(bib,call_num,'b').text
+                    total_bib = bib_subfield_a.strip() + bib_subfield_b.strip()
+                    print (total_bib)
+                    match_found = compare_call_nums(total_bib,holding_call_num.text.strip())
     return_array['bib_subfield_a'] = bib_subfield_a
     return_array['bib_subfield_b'] = bib_subfield_b
     return_array['match'] = match_found
+    print (return_array)
     return return_array
 
 # parses bib record xml file
 def read_results(results):
     bib = ET.parse(results)
-    bib_id = bib.find('record/controlfield[@tag=001]').text
-    for holding in bib.findall('record/datafield[@tag=852]')
-        holding_id = holding.find('subfield[@code=8]')
-        if holding_id:
+    bib_id = bib.find('record/controlfield[@tag="001"]').text
+    for holding in bib.findall('record/datafield[@tag="852"]'):
+        holding_id = holding.find('subfield[@code="8"]').text
+        if holding_id is not None:
             url = return_url(bib_id,holding_id)
+            print (url)
             holding = get_holding_xml(url)
-            holding_call_num = get_holding_call_num(holding)
-            if holding_call_num:
-                results = check_matching_callnum(bib,holding_call_num)
-                if results['match'] == 1:
-                    holding = update_xml(holding,results)
-                    put_holding_xml(url,holding)
-        finally:
-            f.close()
+            if holding:
+                holding_call_num = get_holding_call_num(holding)
+                print(holding_call_num.text)
+                if holding_call_num is not False:
+                    results = check_matching_callnum(bib,holding_call_num)
+                    if results['match'] == 1:
+                        update_xml(holding,results)
+                        print(ET.tostring(holding))
+                        put_holding_xml(url,holding)
+                else:
+                    logging.info('Subfield $i already exists for: ' + url)
 
 
 logging.basicConfig(filename='status.log',level=logging.DEBUG)
