@@ -32,10 +32,10 @@ def update_xml(holding,results):
     marc_852 = holding.find('record/datafield[@tag="852"]')
     subfield_h = marc_852.find('subfield[@code="h"]')
     subfield_h.text = results['bib_subfield_a']
-    subfield_i = ET.Element('subfield')
+    subfield_i = ET.SubElement(marc_852, 'subfield')
     subfield_i.set("code","i")
     subfield_i.text = results['bib_subfield_b']
-    marc_852.append(subfield_i)
+#    marc_852.append(subfield_i)
     print(ET.tostring(holding))
 
 # Places put request for holdign with updated 852 field
