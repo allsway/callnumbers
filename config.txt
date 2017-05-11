@@ -1,0 +1,3 @@
+[Params]
+apikey = l7xxf4966c8c73764930b235f12fde54878d
+baseurl = https://api-na.hosted.exlibrisgroup.com
