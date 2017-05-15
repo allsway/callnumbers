@@ -1,4 +1,4 @@
-# Alma Call number updater
+# Alma call number updater
 Compares the holding record call number to the bib record call number fields: 050, 090, 086, 099 and 055.  If the call numbers are identical and the bib record call number has a $b delimiter but the holding call number does not have a $i delimiter, updates the holding call number to the bib record call number in order to add the $i delimiter.  
 
 #### config.txt
