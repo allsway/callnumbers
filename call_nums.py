@@ -65,7 +65,7 @@ def get_holding_call_num(holding):
 """
 Iterates through bib call number tags
 returns dict with call number subfields if match is found
- """
+"""
 def check_matching_callnum(bib,holding_call_num):
     call_num_array = ['050','090','099','086','055']
     match_found = 0
@@ -91,29 +91,36 @@ def check_matching_callnum(bib,holding_call_num):
 
 # parses bib record xml file
 def read_results(results):
-    bib = ET.parse(results)
-    bib_id = bib.find('record/controlfield[@tag="001"]').text
-    for holding in bib.findall('record/datafield[@tag="852"]'):
-        holding_id = holding.find('subfield[@code="8"]').text
-        if holding_id is not None:
-            url = return_url(bib_id,holding_id)
-            print (url)
-            holding = get_holding_xml(url)
-            if holding:
-                holding_call_num = get_holding_call_num(holding)
-                print(holding_call_num.text)
-                if holding_call_num is not False:
-                    results = check_matching_callnum(bib,holding_call_num)
-                    if results['match'] == 1:
-                        update_xml(holding,results)
-                        print(ET.tostring(holding))
-                        put_holding_xml(url,holding)
-                else:
-                    logging.info('Subfield $i already exists for: ' + url)
+    f = open('matchresults.csv', 'wt')
+    try:
+        writer = csv.writer(f)
+        bib = ET.parse(results)
+        bib_id = bib.find('record/controlfield[@tag="001"]').text
+        for holding in bib.findall('record/datafield[@tag="852"]'):
+            holding_id = holding.find('subfield[@code="8"]').text
+            if holding_id is not None:
+                url = return_url(bib_id,holding_id)
+                print (url)
+                holding = get_holding_xml(url)
+                if holding:
+                    holding_call_num = get_holding_call_num(holding)
+                    print(holding_call_num.text)
+                    if holding_call_num is not False:
+                        results = check_matching_callnum(bib,holding_call_num)
+                        if results['match'] == 1:
+                            update_xml(holding,results)
+                            print(ET.tostring(holding))
+                            put_holding_xml(url,holding)
+                    else:
+                        logging.info('Subfield $i already exists for: ' + url)
+                    writer.writerow(results[match], bib_id, holding_id, holding_call_num,results['bib_subfield_a'] + '|b' + results['bib_subfield_b'])
+    finally:
+        f.close()
+
 
 
 logging.basicConfig(filename='status.log',level=logging.DEBUG)
 config = configparser.ConfigParser()
 config.read(sys.argv[1])
-results = sys.argv[2]
-read_results(results)
+bib_records = sys.argv[2]
+read_results(bib_records)
